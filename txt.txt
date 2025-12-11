@@ -1,0 +1,18 @@
+pos:  torch.Size([4, 3])
+edge_src:  torch.Size([12])
+edge_dst:  torch.Size([12])
+edge_vec:  torch.Size([12, 3])
+edge_sh:  torch.Size([12, 9])
+torch.Size([4, 480])
+torch.Size([4, 480])
+torch.Size([4, 480])
+torch.Size([4, 480])
+torch.Size([4, 480])
+torch.Size([4, 480])
+Energy shape: torch.Size([1, 1])
+Force shape: torch.Size([4, 3])
+Energy: tensor([[1.0795]], device='cuda:0', grad_fn=<DivBackward0>)
+Forces: tensor([[ 0.1053,  0.0109, -0.0381],
+        [-0.0309,  0.4625,  1.6828],
+        [ 0.1188, -0.2177,  0.1516],
+        [-0.1932, -0.2558, -1.7962]], device='cuda:0', grad_fn=<MulBackward0>)

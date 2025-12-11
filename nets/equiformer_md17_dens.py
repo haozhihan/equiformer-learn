@@ -241,7 +241,9 @@ class Equiformer_MD17_DeNS(torch.nn.Module):
         pos         = data.pos
         batch       = data.batch 
 
-        pos = pos.requires_grad_(True)
+        pos = pos.requires_grad_(True) 
+
+        print("pos: ", pos.shape)
 
         edge_src, edge_dst = radius_graph(
             pos, 
@@ -249,15 +251,25 @@ class Equiformer_MD17_DeNS(torch.nn.Module):
             batch=batch,
             max_num_neighbors=1000
         )
-        edge_vec = pos.index_select(0, edge_src) - pos.index_select(0, edge_dst)
+        print("edge_src: ", edge_src.shape)
+        print("edge_dst: ", edge_src.shape)
+
+        edge_vec = pos.index_select(0, edge_src) - pos.index_select(0, edge_dst) 
+
+        print("edge_vec: ", edge_vec.shape) # [12, 3] 笛卡尔坐标系
+
         edge_sh = o3.spherical_harmonics(
             l=self.irreps_edge_attr,
             x=edge_vec, 
             normalize=True, 
             normalization='component'
         )
+
+        print("edge_sh: ", edge_sh.shape) # [12, 9] 1+3+5
         
         atom_embedding, _, _ = self.atom_embed(node_atom)
+
+        
         edge_length = edge_vec.norm(dim=1)
         edge_length_embedding = self.rbf(edge_length)
         edge_degree_embedding = self.edge_deg_embed(

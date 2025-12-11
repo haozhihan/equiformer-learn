@@ -482,6 +482,7 @@ class GraphAttention(torch.nn.Module):
     def forward(self, node_input, node_attr, edge_src, edge_dst, edge_attr, edge_scalars, 
         batch, **kwargs):
         
+        print(node_input.shape)
         message_src = self.merge_src(node_input)
         message_dst = self.merge_dst(node_input)
         message = message_src[edge_src] + message_dst[edge_dst]
