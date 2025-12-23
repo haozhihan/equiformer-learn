@@ -1,18 +1,93 @@
+type o3.Irreps('{}x0e'.format(self.max_atom_type))  64x0e
+type self.irreps_node_embedding 128x0e+64x1e+32x2e
+irreps_node_input 128x0e+64x1e+32x2e
+irreps_node_attr 1x0e
+irreps_edge_attr 1x0e+1x1e+1x2e
+irreps_node_output 128x0e+64x1e+32x2e
+irreps_node_input 128x0e+64x1e+32x2e
+irreps_node_attr 1x0e
+irreps_edge_attr 1x0e+1x1e+1x2e
+irreps_node_output 128x0e+64x1e+32x2e
+irreps_node_input 128x0e+64x1e+32x2e
+irreps_node_attr 1x0e
+irreps_edge_attr 1x0e+1x1e+1x2e
+irreps_node_output 128x0e+64x1e+32x2e
+irreps_node_input 128x0e+64x1e+32x2e
+irreps_node_attr 1x0e
+irreps_edge_attr 1x0e+1x1e+1x2e
+irreps_node_output 128x0e+64x1e+32x2e
+irreps_node_input 128x0e+64x1e+32x2e
+irreps_node_attr 1x0e
+irreps_edge_attr 1x0e+1x1e+1x2e
+irreps_node_output 128x0e+64x1e+32x2e
+irreps_node_input 128x0e+64x1e+32x2e
+irreps_node_attr 1x0e
+irreps_edge_attr 1x0e+1x1e+1x2e
+irreps_node_output 512x0e+256x1e+128x2e
 pos:  torch.Size([4, 3])
 edge_src:  torch.Size([12])
 edge_dst:  torch.Size([12])
 edge_vec:  torch.Size([12, 3])
 edge_sh:  torch.Size([12, 9])
+node_atom: tensor([1, 6, 8, 1], device='cuda:0')
+node_atom_onehot: tensor([[0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+        [0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+        [0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+         0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]], device='cuda:0')
+atom_type_lin's input torch.Size([4, 64])
+atom_type_lin's output torch.Size([4, 480])
+edge_length torch.Size([12])
+edge_length_embedding torch.Size([12, 32])
+==============================================================
+atom_embedding  torch.Size([4, 480])
+edge_degree_embedding  torch.Size([4, 480])
+force False
+==============================================================
+=================Core Part====================================
+==============================================================
+node_features : torch.Size([4, 480])
+node_attr : torch.Size([4, 1])
+edge_src : torch.Size([12])
+edge_dst : torch.Size([12])
+edge_sh : torch.Size([12, 9])
+edge_length_embedding : torch.Size([12, 32])
+self.norm_1 output  torch.Size([4, 480])
 torch.Size([4, 480])
+self.norm_1 output  torch.Size([4, 480])
 torch.Size([4, 480])
+self.norm_1 output  torch.Size([4, 480])
 torch.Size([4, 480])
+self.norm_1 output  torch.Size([4, 480])
 torch.Size([4, 480])
+self.norm_1 output  torch.Size([4, 480])
 torch.Size([4, 480])
+self.norm_1 output  torch.Size([4, 480])
 torch.Size([4, 480])
+
+
+==============================================================
+=================Core Part====================================
+==============================================================
+
+
+
+
 Energy shape: torch.Size([1, 1])
 Force shape: torch.Size([4, 3])
-Energy: tensor([[1.0795]], device='cuda:0', grad_fn=<DivBackward0>)
-Forces: tensor([[ 0.1053,  0.0109, -0.0381],
-        [-0.0309,  0.4625,  1.6828],
-        [ 0.1188, -0.2177,  0.1516],
-        [-0.1932, -0.2558, -1.7962]], device='cuda:0', grad_fn=<MulBackward0>)
+Energy: tensor([[-0.0392]], device='cuda:0', grad_fn=<DivBackward0>)
+Forces: tensor([[ 1.1592,  0.8439, -0.5030],
+        [-1.3922, -0.5172,  0.7785],
+        [ 0.2644, -0.8023, -0.4532],
+        [-0.0314,  0.4756,  0.1777]], device='cuda:0', grad_fn=<MulBackward0>)

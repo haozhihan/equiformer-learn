@@ -169,7 +169,10 @@ class LinearRS(FullyConnectedTensorProductRescale):
             shared_weights=True, normalization=None)
     
     def forward(self, x):
-        y = torch.ones_like(x[:, 0:1])
+        y = torch.ones_like(x[:, 0:1]) # N * 1
+        # print("LinearRS y:", y)
+        #  y : N * 1
+        #  x : N * irreps_in
         out = self.forward_tp_rescale_bias(x, y)
         return out
     

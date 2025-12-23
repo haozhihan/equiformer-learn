@@ -80,7 +80,7 @@ class Equiformer_MD17_DeNS(torch.nn.Module):
         std=None, 
         scale=None, 
         atomref=None,
-        use_force_encoding=True,                        # for ablation study
+        use_force_encoding=False,                        # for ablation study
     ):
         
         super().__init__()
@@ -255,23 +255,27 @@ class Equiformer_MD17_DeNS(torch.nn.Module):
         print("edge_dst: ", edge_src.shape)
 
         edge_vec = pos.index_select(0, edge_src) - pos.index_select(0, edge_dst) 
-
         print("edge_vec: ", edge_vec.shape) # [12, 3] 笛卡尔坐标系
 
+
+        # edge 经过球谐函数
         edge_sh = o3.spherical_harmonics(
             l=self.irreps_edge_attr,
             x=edge_vec, 
             normalize=True, 
             normalization='component'
         )
-
         print("edge_sh: ", edge_sh.shape) # [12, 9] 1+3+5
+        
         
         atom_embedding, _, _ = self.atom_embed(node_atom)
 
-        
+        # edge 的 相对长度 经过RBF
         edge_length = edge_vec.norm(dim=1)
+        print("edge_length", edge_length.shape) #torch.Size([12])
         edge_length_embedding = self.rbf(edge_length)
+        print("edge_length_embedding", edge_length_embedding.shape) #torch.Size([12, 32])
+
         edge_degree_embedding = self.edge_deg_embed(
             atom_embedding, 
             edge_sh, 
@@ -280,9 +284,16 @@ class Equiformer_MD17_DeNS(torch.nn.Module):
             edge_dst, 
             batch
         )
+        print("==============================================================")
+        print("atom_embedding ",atom_embedding.shape)
+        print("edge_degree_embedding ",edge_degree_embedding.shape)
+
         node_features = atom_embedding + edge_degree_embedding
+        # 这个 变量的 用处是什么呢？
         node_attr = torch.ones_like(node_features.narrow(1, 0, 1))
 
+
+        print("force", hasattr(data, 'force') and self.use_force_encoding) # False
         # encoding forces during denoising positions
         if hasattr(data, 'force') and self.use_force_encoding:
             force_data = data.force
@@ -305,16 +316,36 @@ class Equiformer_MD17_DeNS(torch.nn.Module):
         force_embedding = self.force_embed(force_sh)
         node_features = node_features + force_embedding
         
+        print("==============================================================")
+        print("=================Core Part====================================")
+        print("==============================================================")
+
+        print("node_features :", node_features.shape)
+        print("node_attr :", node_attr.shape)
+        print("edge_src :", edge_src.shape)
+        print("edge_dst :", edge_dst.shape)
+        print("edge_sh :", edge_sh.shape)
+        print("edge_length_embedding :", edge_length_embedding.shape)
+
         for blk in self.blocks:
             node_features = blk(
-                node_input=node_features, 
-                node_attr=node_attr, 
-                edge_src=edge_src, 
-                edge_dst=edge_dst, 
-                edge_attr=edge_sh, 
-                edge_scalars=edge_length_embedding, 
-                batch=batch
+                node_input=node_features, # torch.Size([4, 480])
+                node_attr=node_attr, # torch.Size([4, 1])
+
+                edge_src=edge_src, # torch.Size([12])
+                edge_dst=edge_dst, # torch.Size([12])
+                
+                edge_attr=edge_sh, # torch.Size([12, 9])
+                edge_scalars=edge_length_embedding, #torch.Size([12, 32])
+                batch=batch #
             )
+
+        print("\n")
+        print("==============================================================")
+        print("=================Core Part====================================")
+        print("==============================================================")
+        print("\n")
+        print("\n")
         
         node_features = self.norm(node_features, batch=batch)
         if self.out_dropout is not None:

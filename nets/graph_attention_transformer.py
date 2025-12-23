@@ -405,38 +405,55 @@ class GraphAttention(torch.nn.Module):
         1. Message = Alpha * Value
         2. Two Linear to merge src and dst -> Separable FCTP -> 0e + (0e+1e+...)
         3. 0e -> Activation -> Inner Product -> (Alpha)
-        4. (0e+1e+...) -> (Value)
+        4. (0e+1e+...) -> (Value)  
     '''
     def __init__(self,
-        irreps_node_input, irreps_node_attr,
-        irreps_edge_attr, irreps_node_output,
+        irreps_node_input, 
+        irreps_node_attr,
+        irreps_edge_attr, 
+        irreps_node_output,
+
         fc_neurons,
         irreps_head, num_heads, irreps_pre_attn=None, 
         rescale_degree=False, nonlinear_message=False,
         alpha_drop=0.1, proj_drop=0.1):
         
         super().__init__()
-        self.irreps_node_input = o3.Irreps(irreps_node_input)
-        self.irreps_node_attr = o3.Irreps(irreps_node_attr)
-        self.irreps_edge_attr = o3.Irreps(irreps_edge_attr)
-        self.irreps_node_output = o3.Irreps(irreps_node_output)
+        self.irreps_node_input = o3.Irreps(irreps_node_input) # 128x0e+64x1e+32x2e: 480
+        self.irreps_node_attr = o3.Irreps(irreps_node_attr) # 1x0e: 1
+        self.irreps_edge_attr = o3.Irreps(irreps_edge_attr) # 1x0e+1x1e+1x2e: 9
+        self.irreps_node_output = o3.Irreps(irreps_node_output) # 512x0e+256x1e+128x2e: 512 + 256 * 3 + 128 * 5 = 
+        
         self.irreps_pre_attn = self.irreps_node_input if irreps_pre_attn is None \
-            else o3.Irreps(irreps_pre_attn)
+            else o3.Irreps(irreps_pre_attn) # 128x0e+64x1e+32x2e
+        
         self.irreps_head = o3.Irreps(irreps_head)
         self.num_heads = num_heads
         self.rescale_degree = rescale_degree
         self.nonlinear_message = nonlinear_message
+
+
+        # ===============================================
+        # ===============================================
+        # Linear
         
         # Merge src and dst
         self.merge_src = LinearRS(self.irreps_node_input, self.irreps_pre_attn, bias=True)
         self.merge_dst = LinearRS(self.irreps_node_input, self.irreps_pre_attn, bias=False)
+
+        # ===============================================
+        # ===============================================
         
         irreps_attn_heads = irreps_head * num_heads
         irreps_attn_heads, _, _ = sort_irreps_even_first(irreps_attn_heads) #irreps_attn_heads.sort()
         irreps_attn_heads = irreps_attn_heads.simplify() 
+        
         mul_alpha = get_mul_0(irreps_attn_heads)
+        
         mul_alpha_head = mul_alpha // num_heads
+        
         irreps_alpha = o3.Irreps('{}x0e'.format(mul_alpha)) # for attention score
+        
         irreps_attn_all = (irreps_alpha + irreps_attn_heads).simplify()
         
         self.sep_act = None
@@ -471,6 +488,9 @@ class GraphAttention(torch.nn.Module):
         self.alpha_dropout = None
         if alpha_drop != 0.0:
             self.alpha_dropout = torch.nn.Dropout(alpha_drop)
+
+        # ===============================================
+        # ===============================================
         
         self.proj = LinearRS(irreps_attn_heads, self.irreps_node_output)
         self.proj_drop = None
@@ -482,10 +502,12 @@ class GraphAttention(torch.nn.Module):
     def forward(self, node_input, node_attr, edge_src, edge_dst, edge_attr, edge_scalars, 
         batch, **kwargs):
         
-        print(node_input.shape)
-        message_src = self.merge_src(node_input)
-        message_dst = self.merge_dst(node_input)
+        # print(node_input.shape)
+        message_src = self.merge_src(node_input) # Linear layer   128x0e+64x1e+32x2e -> 128x0e+64x1e+32x2e
+        message_dst = self.merge_dst(node_input) # Linear layer
+        
         message = message_src[edge_src] + message_dst[edge_dst]
+        print("message in GraphAttention: ", message.shape)
         
         if self.nonlinear_message:          
             weight = self.sep_act.dtp_rad(edge_scalars)
@@ -595,34 +617,69 @@ class TransBlock(torch.nn.Module):
         self.irreps_node_attr = o3.Irreps(irreps_node_attr)
         self.irreps_edge_attr = o3.Irreps(irreps_edge_attr)
         self.irreps_node_output = o3.Irreps(irreps_node_output)
+
+        print("irreps_node_input", irreps_node_input) # 128x0e+64x1e+32x2e: 480
+        print("irreps_node_attr", irreps_node_attr) # 1x0e: 1
+        print("irreps_edge_attr", irreps_edge_attr) # 1x0e+1x1e+1x2e: 9
+        print("irreps_node_output", irreps_node_output) # 512x0e+256x1e+128x2e: 512 + 256 * 3 + 128 * 5 = 
+
         self.irreps_pre_attn = self.irreps_node_input if irreps_pre_attn is None \
-            else o3.Irreps(irreps_pre_attn)
-        self.irreps_head = o3.Irreps(irreps_head)
-        self.num_heads = num_heads
-        self.rescale_degree = rescale_degree
-        self.nonlinear_message = nonlinear_message
+            else o3.Irreps(irreps_pre_attn) # irreps_pre_attn: 128x0e+64x1e+32x2e
+        self.irreps_head = o3.Irreps(irreps_head) # 32x0e+16x1o+8x2e
+        self.num_heads = num_heads # 4
+        self.rescale_degree = rescale_degree # False
+        self.nonlinear_message = nonlinear_message # True
         self.irreps_mlp_mid = o3.Irreps(irreps_mlp_mid) if irreps_mlp_mid is not None \
-            else self.irreps_node_input
+            else self.irreps_node_input # 128x0e+64x1e+32x2e
         
-        self.norm_1 = get_norm_layer(norm_layer)(self.irreps_node_input)
-        self.ga = GraphAttention(irreps_node_input=self.irreps_node_input, 
+
+        # ==========================================================
+        # ==========================================================
+
+        self.norm_1 = get_norm_layer(norm_layer)(self.irreps_node_input) # 128x0e+64x1e+32x2e: 480
+
+        # ==========================================================
+        # ==========================================================
+        
+        self.ga = GraphAttention(
+            irreps_node_input=self.irreps_node_input, 
+            
             irreps_node_attr=self.irreps_node_attr,
             irreps_edge_attr=self.irreps_edge_attr, 
+            
             irreps_node_output=self.irreps_node_input,
+            
             fc_neurons=fc_neurons,
+            
             irreps_head=self.irreps_head, 
+            
             num_heads=self.num_heads, 
+            
             irreps_pre_attn=self.irreps_pre_attn, 
+            
             rescale_degree=self.rescale_degree, 
+            
             nonlinear_message=self.nonlinear_message,
+            
             alpha_drop=alpha_drop, 
+            
             proj_drop=proj_drop)
         
+        # ==========================================================
+        # ==========================================================
+        
         self.drop_path = GraphDropPath(drop_path_rate) if drop_path_rate > 0. else None
+
+        # ==========================================================
+        # ==========================================================
         
         self.norm_2 = get_norm_layer(norm_layer)(self.irreps_node_input)
         #self.concat_norm_output = ConcatIrrepsTensor(self.irreps_node_input, 
         #    self.irreps_node_input)
+
+        # ==========================================================
+        # ==========================================================
+
         self.ffn = FeedForwardNetwork(
             irreps_node_input=self.irreps_node_input, #self.concat_norm_output.irreps_out, 
             irreps_node_attr=self.irreps_node_attr,
@@ -635,6 +692,9 @@ class TransBlock(torch.nn.Module):
                 self.irreps_node_input, self.irreps_node_attr, 
                 self.irreps_node_output, 
                 bias=True, rescale=_RESCALE)
+        
+        # ==========================================================
+        # ==========================================================
             
             
     def forward(self, node_input, node_attr, edge_src, edge_dst, edge_attr, edge_scalars, 
@@ -642,24 +702,54 @@ class TransBlock(torch.nn.Module):
         
         node_output = node_input
         node_features = node_input
+
+        # ==========================================================
+        # ==========================================================
+
         node_features = self.norm_1(node_features, batch=batch)
         #norm_1_output = node_features
-        node_features = self.ga(node_input=node_features, 
+        print("self.norm_1 output ", node_features.shape) # torch.Size([4, 480])
+        
+        # ==========================================================
+        # ==========================================================
+        
+        node_features = self.ga(
+            node_input=node_features,  # torch.Size([4, 480])
+            
             node_attr=node_attr, 
-            edge_src=edge_src, edge_dst=edge_dst, 
-            edge_attr=edge_attr, edge_scalars=edge_scalars,
+            
+            edge_src=edge_src, 
+            edge_dst=edge_dst, 
+            
+            edge_attr=edge_attr, 
+            edge_scalars=edge_scalars,
+
             batch=batch)
+
+        # ==========================================================
+        # ==========================================================
         
         if self.drop_path is not None:
             node_features = self.drop_path(node_features, batch)
         node_output = node_output + node_features
         
         node_features = node_output
+
+        # ==========================================================
+        # ==========================================================
+
         node_features = self.norm_2(node_features, batch=batch)
         #node_features = self.concat_norm_output(norm_1_output, node_features)
+
+        # ==========================================================
+        # ==========================================================
+
         node_features = self.ffn(node_features, node_attr)
         if self.ffn_shortcut is not None:
             node_output = self.ffn_shortcut(node_output, node_attr)
+
+        # ==========================================================
+        # ==========================================================
         
         if self.drop_path is not None:
             node_features = self.drop_path(node_features, batch)
@@ -675,18 +765,37 @@ class NodeEmbeddingNetwork(torch.nn.Module):
         super().__init__()
         self.max_atom_type = max_atom_type
         self.irreps_node_embedding = o3.Irreps(irreps_node_embedding)
-        self.atom_type_lin = LinearRS(o3.Irreps('{}x0e'.format(self.max_atom_type)), 
-            self.irreps_node_embedding, bias=bias)
-        self.atom_type_lin.tp.weight.data.mul_(self.max_atom_type ** 0.5)
+        
+        #  LinearRS 
+        # 输入类型：max_atom_type x 0e
+        # 输出类型：128x0e+64x1e+32x2e 
+        # print('{}x0e'.format(self.max_atom_type)) 64x0e
+        self.atom_type_lin = LinearRS(
+                                o3.Irreps('{}x0e'.format(self.max_atom_type)), # 64x0e
+                                self.irreps_node_embedding, # 128x0e+64x1e+32x2e 
+                                bias=bias)
+        print("type o3.Irreps('{}x0e'.format(self.max_atom_type)) ", o3.Irreps('{}x0e'.format(self.max_atom_type)))
+        print("type self.irreps_node_embedding", self.irreps_node_embedding)
+        
+         
         
         
     def forward(self, node_atom):
         '''
             `node_atom` is a LongTensor.
         '''
-        node_atom_onehot = torch.nn.functional.one_hot(node_atom, self.max_atom_type).float()
+        print("node_atom:", node_atom)
+        
+        node_atom_onehot = torch.nn.functional.one_hot(
+                                node_atom, 
+                                self.max_atom_type
+                            ).float()
+        print("node_atom_onehot:", node_atom_onehot) # N * max_atom_type
         node_attr = node_atom_onehot
+        
         node_embedding = self.atom_type_lin(node_atom_onehot)
+        print("atom_type_lin's input", node_atom_onehot.shape)
+        print("atom_type_lin's output", node_embedding.shape)
         
         return node_embedding, node_attr, node_atom_onehot
 

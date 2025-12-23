@@ -64,7 +64,7 @@ class EquivariantLayerNormV2(nn.Module):
     def __init__(self, irreps, eps=1e-5, affine=True, normalization='component'):
         super().__init__()
 
-        self.irreps = Irreps(irreps)
+        self.irreps = Irreps(irreps) # 128x0e+64x1e+32x2e: 480
         self.eps = eps
         self.affine = affine
 
@@ -72,8 +72,8 @@ class EquivariantLayerNormV2(nn.Module):
         num_features = self.irreps.num_irreps
 
         if affine:
-            self.affine_weight = nn.Parameter(torch.ones(num_features))
-            self.affine_bias = nn.Parameter(torch.zeros(num_scalar))
+            self.affine_weight = nn.Parameter(torch.ones(num_features)) # 3
+            self.affine_bias = nn.Parameter(torch.zeros(num_scalar)) # 128
         else:
             self.register_parameter('affine_weight', None)
             self.register_parameter('affine_bias', None)
@@ -92,7 +92,8 @@ class EquivariantLayerNormV2(nn.Module):
         # node_input = node_input.reshape(batch, -1, dim)  # [batch, sample, stacked features]
         # node_input has shape [batch * nodes, dim], but with variable nr of nodes.
         # the node_input batch slices this into separate graphs
-        dim = node_input.shape[-1]
+        
+        dim = node_input.shape[-1] # 480 
 
         fields = []
         ix = 0
@@ -102,18 +103,18 @@ class EquivariantLayerNormV2(nn.Module):
         for mul, ir in self.irreps:  # mul is the multiplicity (number of copies) of some irrep type (ir)
             d = ir.dim
             #field = node_input[:, ix: ix + mul * d]  # [batch * sample, mul * repr]
-            field = node_input.narrow(1, ix, mul*d)
+            field = node_input.narrow(1, ix, mul*d) # torch.Size([4, 480]) -> [4, 128]
             ix += mul * d
 
             # [batch * sample, mul, repr]
-            field = field.reshape(-1, mul, d)
+            field = field.reshape(-1, mul, d) # [4, 128, 1]
 
-            # For scalars first compute and subtract the mean
+            # For scalars (0e) first compute and subtract the mean
             if ir.l == 0 and ir.p == 1:
                 # Compute the mean
-                field_mean = torch.mean(field, dim=1, keepdim=True) # [batch, mul, 1]]
+                field_mean = torch.mean(field, dim=1, keepdim=True) # [batch, 1, 1]]
                 # Subtract the mean
-                field = field - field_mean
+                field = field - field_mean # [4, 128, 1]
                 
             # Then compute the rescaling factor (norm of each feature vector)
             # Rescaling of the norms themselves based on the option "normalization"
