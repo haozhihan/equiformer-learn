@@ -244,12 +244,46 @@ def main(args):
         test_err, test_loss = evaluate(model, norm_factor, args.target, test_loader, device, 
             amp_autocast=amp_autocast, print_freq=args.print_freq, logger=_log)
         
-        # record the best results
+        # record the best results and save checkpoint
         if val_err < best_val_err:
             best_val_err = val_err
             best_test_err = test_err
             best_train_err = train_err
             best_epoch = epoch
+            # Save best model checkpoint
+            if is_main_process and args.output_dir:
+                checkpoint_path = os.path.join(args.output_dir, 'best_checkpoint.pth.tar')
+                if args.distributed:
+                    model_state_dict = model.module.state_dict()
+                else:
+                    model_state_dict = model.state_dict()
+                torch.save({
+                    'epoch': epoch,
+                    'state_dict': model_state_dict,
+                    'optimizer': optimizer.state_dict(),
+                    'scheduler': lr_scheduler.state_dict() if lr_scheduler else None,
+                    'best_val_err': best_val_err,
+                    'best_test_err': best_test_err,
+                    'best_train_err': best_train_err,
+                }, checkpoint_path)
+                _log.info(f'Saved best checkpoint to {checkpoint_path}')
+        
+        # Save checkpoint at the end of each epoch
+        if is_main_process and args.output_dir:
+            checkpoint_path = os.path.join(args.output_dir, f'checkpoint_epoch_{epoch}.pth.tar')
+            if args.distributed:
+                model_state_dict = model.module.state_dict()
+            else:
+                model_state_dict = model.state_dict()
+            torch.save({
+                'epoch': epoch,
+                'state_dict': model_state_dict,
+                'optimizer': optimizer.state_dict(),
+                'scheduler': lr_scheduler.state_dict() if lr_scheduler else None,
+                'val_err': val_err,
+                'test_err': test_err,
+                'train_err': train_err,
+            }, checkpoint_path)
 
         info_str = 'Epoch: [{epoch}] Target: [{target}] train MAE: {train_mae:.5f}, '.format(
             epoch=epoch, target=args.target, train_mae=train_err)
@@ -270,11 +304,21 @@ def main(args):
             ema_test_err, _ = evaluate(model_ema.module, norm_factor, args.target, test_loader, device, 
                 amp_autocast=amp_autocast, print_freq=args.print_freq, logger=_log)
             
-            # record the best results
+            # record the best results and save EMA checkpoint
             if (ema_val_err) < best_ema_val_err:
                 best_ema_val_err = ema_val_err
                 best_ema_test_err = ema_test_err
                 best_ema_epoch = epoch
+                # Save best EMA model checkpoint
+                if is_main_process and args.output_dir:
+                    ema_checkpoint_path = os.path.join(args.output_dir, 'best_ema_checkpoint.pth.tar')
+                    torch.save({
+                        'epoch': epoch,
+                        'state_dict': model_ema.module.state_dict(),
+                        'best_ema_val_err': best_ema_val_err,
+                        'best_ema_test_err': best_ema_test_err,
+                    }, ema_checkpoint_path)
+                    _log.info(f'Saved best EMA checkpoint to {ema_checkpoint_path}')
     
             info_str = 'Epoch: [{epoch}] Target: [{target}] '.format(
                 epoch=epoch, target=args.target)
